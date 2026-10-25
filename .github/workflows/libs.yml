@@ -3,21 +3,32 @@ on: [workflow_dispatch]
 jobs:
   python-libs:
     runs-on: ubuntu-latest
+    env:
+      PY: "3.12.2"
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build wheelhouse (UBI 9, Python 3.12)
+      - name: Build wheelhouse (UBI 9, Python 3.12.2)
         run: |
-          docker run --rm --user 0 -v "$PWD/backend:/work" -w /work \
+          docker run --rm --user 0 -e PY -v "$PWD/backend:/work" -w /work \
             registry.access.redhat.com/ubi9/python-312-minimal:latest \
-            sh -c "microdnf install -y gcc gcc-c++ make && \
-                   python -m pip wheel --wheel-dir wheelhouse pip setuptools wheel -r requirements.txt"
+            sh -c 'microdnf install -y gcc gcc-c++ make && \
+                   pip install --no-cache-dir uv && \
+                   export UV_PYTHON_INSTALL_DIR=/tmp/uvpy && \
+                   uv venv --seed --python "$PY" /tmp/b && \
+                   /tmp/b/bin/python --version && \
+                   /tmp/b/bin/python -m pip wheel --wheel-dir wheelhouse \
+                     pip setuptools wheel -r requirements.txt'
 
-      - name: Test offline install
+      - name: Test offline install (Python 3.12.2)
         run: |
-          docker run --rm --user 0 -v "$PWD/backend:/work" -w /work \
+          docker run --rm --user 0 -e PY -v "$PWD/backend:/work" -w /work \
             registry.access.redhat.com/ubi9/python-312-minimal:latest \
-            sh -c "python -m venv /tmp/v && /tmp/v/bin/pip install --no-index --find-links wheelhouse -r requirements.txt"
+            sh -c 'pip install --no-cache-dir uv && \
+                   export UV_PYTHON_INSTALL_DIR=/tmp/uvpy && \
+                   uv venv --seed --python "$PY" /tmp/t && \
+                   /tmp/t/bin/python --version && \
+                   /tmp/t/bin/pip install --no-index --find-links wheelhouse -r requirements.txt'
 
       - run: tar czf python-libs.tar.gz -C backend wheelhouse requirements.txt
       - uses: actions/upload-artifact@v4
