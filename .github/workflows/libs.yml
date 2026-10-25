@@ -1,0 +1,51 @@
+name: download-libs
+on: [workflow_dispatch]
+jobs:
+  python-libs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheelhouse (UBI 9, Python 3.12)
+        run: |
+          docker run --rm --user 0 -v "$PWD/backend:/work" -w /work \
+            registry.access.redhat.com/ubi9/python-312-minimal:latest \
+            sh -c "microdnf install -y gcc gcc-c++ make && \
+                   python -m pip wheel --wheel-dir wheelhouse pip setuptools wheel -r requirements.txt"
+
+      - name: Test offline install
+        run: |
+          docker run --rm --user 0 -v "$PWD/backend:/work" -w /work \
+            registry.access.redhat.com/ubi9/python-312-minimal:latest \
+            sh -c "python -m venv /tmp/v && /tmp/v/bin/pip install --no-index --find-links wheelhouse -r requirements.txt"
+
+      - run: tar czf python-libs.tar.gz -C backend wheelhouse requirements.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-libs
+          path: python-libs.tar.gz
+          retention-days: 7
+
+  node-libs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: npm install with the existing lock file (UBI 9, Node 22)
+        run: |
+          docker run --rm --user 0 -v "$PWD/frontend:/work" -w /work \
+            registry.access.redhat.com/ubi9/nodejs-22-minimal:latest \
+            sh -c "microdnf install -y gcc-c++ make python3 && npm install --no-audit --no-fund"
+
+      - name: Print installed versions
+        run: |
+          docker run --rm --user 0 -v "$PWD/frontend:/work" -w /work \
+            registry.access.redhat.com/ubi9/nodejs-22-minimal:latest \
+            npm ls --depth=0
+
+      - run: tar czf node-libs.tar.gz -C frontend node_modules package.json package-lock.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: node-libs
+          path: node-libs.tar.gz
+          retention-days: 7
