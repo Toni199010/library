@@ -97,6 +97,7 @@
 #           path: node-libs.tar.gz
 #           retention-days: 7
 
+
 name: Build Node Libraries for Windows
 
 on:
@@ -110,24 +111,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 18
+      - name: Setup Node.js 18.20
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          node-version: 18.20
 
-      - name: Install dependencies from package-lock.json
+      - name: Generate package-lock.json from package.json
         working-directory: frontend
-        shell: cmd
+        run: npm install --package-lock-only --no-audit --no-fund
+
+      - name: Install ALL dependencies
+        working-directory: frontend
         run: npm ci --include=optional --no-audit --no-fund
 
       - name: Verify installed dependencies
         working-directory: frontend
-        shell: cmd
         run: npm ls --depth=0
 
-      - name: Create node libraries archive
+      - name: Create Windows node libraries archive
         shell: powershell
         run: |
           tar -czf node-libs-windows.tar.gz -C frontend node_modules package.json package-lock.json
