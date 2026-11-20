@@ -9,7 +9,7 @@
     "format": "prettier --write \"{components,app,service,api-generator}/**/*.{js,ts,tsx,d.ts}\"",
     "lint": "eslint ."
   },
-  {
+
   "dependencies": {
     "@reduxjs/toolkit": "^2.0.1",
     "@tabler/icons-webfont": "^2.45.0",
@@ -44,5 +44,4 @@
     "prettier": "^2.8.8",
     "sass": "^1.63.4"
   }
-}
 }
