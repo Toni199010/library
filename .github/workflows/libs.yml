@@ -34,44 +34,44 @@
 #             backend/wheelhouse
 #             backend/requirements.txt
 #           retention-days: 7
-name: download-libs
-on: [workflow_dispatch]
-jobs:
-  python-libs:
-    runs-on: ubuntu-latest
-    env:
-      PY: "3.12.2"
-    steps:
-      - uses: actions/checkout@v4
+# name: download-libs
+# on: [workflow_dispatch]
+# jobs:
+#   python-libs:
+#     runs-on: ubuntu-latest
+#     env:
+#       PY: "3.12.2"
+#     steps:
+#       - uses: actions/checkout@v4
 
-      - name: Build wheelhouse (UBI 9, Python 3.12.2)
-        run: |
-          docker run --rm --user 0 -e PY -v "$PWD/backend:/work" -w /work \
-            registry.access.redhat.com/ubi9/python-312-minimal:latest \
-            sh -c 'microdnf install -y gcc gcc-c++ make && \
-                   pip install --no-cache-dir uv && \
-                   export UV_PYTHON_INSTALL_DIR=/tmp/uvpy && \
-                   uv venv --seed --python "$PY" /tmp/b && \
-                   /tmp/b/bin/python --version && \
-                   /tmp/b/bin/python -m pip wheel --wheel-dir wheelhouse \
-                     pip setuptools wheel -r requirements.txt'
+#       - name: Build wheelhouse (UBI 9, Python 3.12.2)
+#         run: |
+#           docker run --rm --user 0 -e PY -v "$PWD/backend:/work" -w /work \
+#             registry.access.redhat.com/ubi9/python-312-minimal:latest \
+#             sh -c 'microdnf install -y gcc gcc-c++ make && \
+#                    pip install --no-cache-dir uv && \
+#                    export UV_PYTHON_INSTALL_DIR=/tmp/uvpy && \
+#                    uv venv --seed --python "$PY" /tmp/b && \
+#                    /tmp/b/bin/python --version && \
+#                    /tmp/b/bin/python -m pip wheel --wheel-dir wheelhouse \
+#                      pip setuptools wheel -r requirements.txt'
 
-      - name: Test offline install (Python 3.12.2)
-        run: |
-          docker run --rm --user 0 -e PY -v "$PWD/backend:/work" -w /work \
-            registry.access.redhat.com/ubi9/python-312-minimal:latest \
-            sh -c 'pip install --no-cache-dir uv && \
-                   export UV_PYTHON_INSTALL_DIR=/tmp/uvpy && \
-                   uv venv --seed --python "$PY" /tmp/t && \
-                   /tmp/t/bin/python --version && \
-                   /tmp/t/bin/pip install --no-index --find-links wheelhouse -r requirements.txt'
+#       - name: Test offline install (Python 3.12.2)
+#         run: |
+#           docker run --rm --user 0 -e PY -v "$PWD/backend:/work" -w /work \
+#             registry.access.redhat.com/ubi9/python-312-minimal:latest \
+#             sh -c 'pip install --no-cache-dir uv && \
+#                    export UV_PYTHON_INSTALL_DIR=/tmp/uvpy && \
+#                    uv venv --seed --python "$PY" /tmp/t && \
+#                    /tmp/t/bin/python --version && \
+#                    /tmp/t/bin/pip install --no-index --find-links wheelhouse -r requirements.txt'
 
-      - run: tar czf python-libs.tar.gz -C backend wheelhouse requirements.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: python-libs
-          path: python-libs.tar.gz
-          retention-days: 7
+#       - run: tar czf python-libs.tar.gz -C backend wheelhouse requirements.txt
+#       - uses: actions/upload-artifact@v4
+#         with:
+#           name: python-libs
+#           path: python-libs.tar.gz
+#           retention-days: 7
 
 #   node-libs:
 #     runs-on: ubuntu-latest
@@ -96,3 +96,45 @@ jobs:
 #           name: node-libs
 #           path: node-libs.tar.gz
 #           retention-days: 7
+
+name: Build Node Libraries for Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  node-libs:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies from package-lock.json
+        working-directory: frontend
+        shell: cmd
+        run: npm ci --include=optional --no-audit --no-fund
+
+      - name: Verify installed dependencies
+        working-directory: frontend
+        shell: cmd
+        run: npm ls --depth=0
+
+      - name: Create node libraries archive
+        shell: powershell
+        run: |
+          tar -czf node-libs-windows.tar.gz -C frontend node_modules package.json package-lock.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-libs-windows-node22
+          path: node-libs-windows.tar.gz
+          retention-days: 7
